@@ -6,6 +6,11 @@ import joblib
 import warnings
 import numpy as np
 
+# ---------------------------
+# Streamlit page config (MUST be the first streamlit command)
+# ---------------------------
+st.set_page_config(page_title="Crop Recommendation", layout="wide")
+
 # Suppress warnings
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
@@ -25,7 +30,7 @@ try:
     model = joblib.load(MODEL_PATH)
     encoder = joblib.load(ENCODER_PATH)
     model_columns = joblib.load(COLUMNS_PATH)
-    st.write("✅ Model, Encoder, and Columns loaded successfully.")
+    st.success("✅ Model, Encoder, and Columns loaded successfully.")
 except Exception as e:
     st.error("ERROR: Model files not found or failed to load. Ensure model.joblib, encoder.joblib, and model_columns.joblib are in the app folder.")
     st.exception(e)
@@ -71,9 +76,8 @@ def get_weather(city, api_key):
         return None, None
 
 # ---------------------------
-# Streamlit UI Setup
+# Streamlit UI Setup (title, caption, layout)
 # ---------------------------
-st.set_page_config(page_title="Crop Recommendation", layout="wide")
 st.title("🌾 Crop Recommendation System")
 
 # Show approximate dataset ranges
