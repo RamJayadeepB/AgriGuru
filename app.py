@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 
 # ---------------------------
-# Streamlit page config (MUST be the first streamlit command)
+# Streamlit page config (MUST be the first Streamlit command)
 # ---------------------------
 st.set_page_config(page_title="Crop Recommendation", layout="wide")
 
@@ -24,12 +24,44 @@ ENCODER_PATH = os.path.join(BASE_DIR, "encoder.joblib")
 COLUMNS_PATH = os.path.join(BASE_DIR, "model_columns.joblib")
 IMAGE_DIR = os.path.join(BASE_DIR, "crop_images")
 
-# Safe image display helper: tries use_container_width, falls back if not supported
+# ---------------------------
+# Helpers
+# ---------------------------
+
 def show_image(path_or_obj, caption=None):
+    """
+    Show image with use_container_width when supported (older Streamlit may not accept that kwarg).
+    """
     try:
         st.image(path_or_obj, caption=caption, use_container_width=True)
     except TypeError:
         st.image(path_or_obj, caption=caption)
+
+def get_openweather_key():
+    """
+    Resolve OpenWeather API key in a safe order:
+    1) OS environment variable OPENWEATHER_API_KEY
+    2) Streamlit secrets (if available) - try/except to avoid FileNotFoundError
+    3) None (caller should prompt user)
+    """
+    # 1) environment variable (recommended for Render)
+    key = os.environ.get("OPENWEATHER_API_KEY")
+    if key:
+        return key
+
+    # 2) streamlit secrets (safe access)
+    try:
+        if hasattr(st, "secrets") and st.secrets is not None:
+            # st.secrets is dict-like; use get to avoid KeyError
+            return st.secrets.get("OPENWEATHER_API_KEY")
+    except FileNotFoundError:
+        # No secrets file exists in the runtime; ignore
+        pass
+    except Exception:
+        # Other issues reading secrets — ignore and fallback to prompting the user
+        pass
+
+    return None
 
 # ---------------------------
 # Load Trained Model & Encoder
@@ -59,7 +91,7 @@ else:
 # ---------------------------
 def get_weather(city: str, api_key: str):
     """
-    Fetches current temperature and humidity from OpenWeather API.
+    Fetches current temperature (C) and humidity (%) from OpenWeather API.
     Returns (temp_C, humidity) or (None, None) on failure.
     """
     base_url = "http://api.openweathermap.org/data/2.5/weather"
@@ -93,7 +125,7 @@ st.caption(
     "Humidity: 14–100 %, pH: 3.5–9.9, Rainfall: 20–299 mm"
 )
 
-# Layout
+# Layout columns
 col1, col2 = st.columns([1, 1])
 
 with col1:
@@ -107,7 +139,7 @@ with col1:
         K = st.slider("Potassium (K) (kg/ha)", min_value=0, max_value=210, value=60, help="Dataset range ≈ 5 – 205")
         ph = st.slider("Soil pH", min_value=3.0, max_value=10.0, value=6.5, step=0.1, help="Dataset range ≈ 3.5 – 9.9")
 
-        # Defaults
+        # defaults
         api_key = None
         city = None
 
@@ -119,8 +151,8 @@ with col1:
         else:
             st.markdown("---")
             st.info("🌦️ API will fetch **Current Temperature** and **Humidity**.")
-            # Prefer environment secret, fall back to user input field
-            api_key_env = os.environ.get("OPENWEATHER_API_KEY") or st.secrets.get("OPENWEATHER_API_KEY") if hasattr(st, "secrets") else None
+            # Prefer Render env var or Streamlit secrets, otherwise prompt user
+            api_key_env = get_openweather_key()
             api_key = api_key_env or st.text_input("Enter your OpenWeather API Key", type="password", help="Get a free key from openweathermap.org")
             city = st.text_input("Enter your City")
             st.warning("**Rainfall must be entered manually.**")
@@ -139,10 +171,12 @@ with col2:
         elif mode == "Automatic (City) Mode" and not city:
             st.error("Please enter a city name for Automatic Mode.")
         else:
+            # Fetch weather if needed
             if mode == "Automatic (City) Mode":
                 with st.spinner(f"Fetching current weather for {city}..."):
                     temp, humidity = get_weather(city, api_key)
 
+            # Make prediction if we have weather values
             if temp is not None and humidity is not None:
                 data = {
                     "N": float(N),
