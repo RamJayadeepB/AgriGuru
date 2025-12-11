@@ -1,0 +1,10 @@
+streamlit==1.25.0
+pandas
+scikit-learn
+joblib
+requests
+numpy
+matplotlib
+seaborn
+shap
+umap-learn
