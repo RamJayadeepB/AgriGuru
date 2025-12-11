@@ -31,4 +31,5 @@ ENV STREAMLIT_SERVER_HEADLESS=true
 ENV STREAMLIT_SERVER_PORT=8501
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 
-CMD ["/app/start.sh"]
+CMD ["bash", "-lc", "/app/start.sh"]
+
