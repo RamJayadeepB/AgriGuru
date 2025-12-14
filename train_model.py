@@ -16,10 +16,6 @@ import os
 warnings.filterwarnings('ignore')
 
 print("Starting model training script...")
-
-# ---------------------------
-# Base dir & file paths (relative)
-# ---------------------------
 BASE_DIR = os.path.dirname(__file__) or "."
 CSV_PATH = os.path.join(BASE_DIR, "Crop_recommendation.csv")
 MODEL_PATH = os.path.join(BASE_DIR, "model.joblib")
@@ -30,15 +26,9 @@ if not os.path.exists(CSV_PATH):
     print(f"ERROR: '{CSV_PATH}' not found.")
     raise SystemExit(1)
 
-# ---------------------------
-# 1. Load Dataset
-# ---------------------------
 df = pd.read_csv(CSV_PATH)
 print("Dataset loaded successfully:", CSV_PATH)
 
-# ---------------------------
-# 2. Filter Crops
-# ---------------------------
 agricultural_crops = [
     'rice', 'maize', 'chickpea', 'kidneybeans', 'pigeonpeas',
     'mothbeans', 'mungbean', 'blackgram', 'lentil'
@@ -51,13 +41,9 @@ selected = agricultural_crops + horticultural_crops
 df_mixed = df[df['label'].isin(selected)].reset_index(drop=True)
 print(f"Training on {len(df_mixed)} mixed samples.")
 
-# ---------------------------
-# 3. Encode and Train
-# ---------------------------
 X = df_mixed.drop('label', axis=1).copy()
 y = df_mixed['label'].copy()
 
-# Save model columns for later inference (order matters)
 model_columns = list(X.columns)
 joblib.dump(model_columns, COLUMNS_PATH)
 print("Saved model columns:", COLUMNS_PATH)
@@ -76,39 +62,28 @@ final_model.fit(X, y_encoded)
 joblib.dump(final_model, MODEL_PATH)
 print("Model trained and saved to:", MODEL_PATH)
 
-# ======================================================
-# SHAP + Visualization + K-Fold Evaluation
-# ======================================================
 print("\n==============================")
 print("MODEL ANALYSIS STARTING")
 print("==============================")
 
 explainer = shap.TreeExplainer(final_model)
 raw_shap = explainer.shap_values(X)
-
-# ---------------------------
-# SHAP Aggregation (handles multiclass)
-# ---------------------------
 print("\nPerforming SHAP explainability...")
 
 if isinstance(raw_shap, list):
-    # multiclass -> list of arrays (one per class)
     print(f"Detected multiclass with {len(raw_shap)} outputs.")
     arrs = []
     for i, sv in enumerate(raw_shap):
         sv = np.array(sv)
         print(f" → Class {i} raw shape: {sv.shape}")
-        # If there's an unwanted axis, try to reduce it
         if sv.ndim == 3:
             sv = np.mean(sv, axis=-1)
         arrs.append(sv)
-    # stack into (n_samples, n_features, n_classes) then average across classes
     stacked = np.stack(arrs, axis=2)
     shap_agg = np.mean(stacked, axis=2)
 else:
     shap_agg = np.array(raw_shap)
 
-# If still 3D, reduce last axis
 if shap_agg.ndim == 3:
     shap_agg = np.mean(shap_agg, axis=-1)
 
@@ -117,19 +92,12 @@ print("X shape:", X.shape)
 
 if shap_agg.shape[1] != X.shape[1]:
     raise ValueError(f"SHAP features {shap_agg.shape[1]} != X features {X.shape[1]}")
-
-# ---------------------------
-# Feature Importance
-# ---------------------------
 mean_abs_by_feature = np.mean(np.abs(shap_agg), axis=0).ravel()
 feat_importance = pd.DataFrame({
     "feature": X.columns,
     "mean_abs_shap": mean_abs_by_feature
 }).sort_values("mean_abs_shap", ascending=False)
 
-# ---------------------------
-# Global SHAP Plots (save, don't show)
-# ---------------------------
 plt.figure(figsize=(10, 6))
 shap.summary_plot(shap_agg, X, show=False)
 plt.title("SHAP Summary (Aggregated Across Classes)")
@@ -144,7 +112,6 @@ plt.tight_layout()
 plt.savefig(os.path.join(BASE_DIR, "shap_feature_ranking.png"), dpi=300)
 plt.close()
 
-# Dependence plots for top 5 features (save each)
 for feat in feat_importance["feature"].head(5):
     try:
         plt.figure(figsize=(8, 6))
@@ -159,15 +126,12 @@ for feat in feat_importance["feature"].head(5):
 
 print("SHAP analysis completed and plots saved.")
 
-# ---------------------------
-# t-SNE and UMAP Visualization
-# ---------------------------
 print("\nGenerating t-SNE and UMAP visualizations...")
 
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# t-SNE
+
 tsne = TSNE(n_components=2, perplexity=30, random_state=42)
 X_tsne = tsne.fit_transform(X_scaled)
 plt.figure(figsize=(10, 6))
@@ -178,7 +142,6 @@ plt.tight_layout()
 plt.savefig(os.path.join(BASE_DIR, "tsne_true.png"), dpi=300)
 plt.close()
 
-# UMAP
 reducer = umap.UMAP(n_components=2, n_neighbors=15, random_state=42)
 X_umap = reducer.fit_transform(X_scaled)
 plt.figure(figsize=(10, 6))
@@ -190,10 +153,6 @@ plt.savefig(os.path.join(BASE_DIR, "umap_true.png"), dpi=300)
 plt.close()
 
 print("t-SNE and UMAP visualizations saved.")
-
-# ---------------------------
-# Stratified K-Fold Metrics
-# ---------------------------
 print("\nRunning Stratified K-Fold Evaluation...")
 
 skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -233,13 +192,10 @@ plt.close()
 
 print("Stratified K-Fold results saved.")
 
-# ---- Load crop names from encoder ----
 class_names = list(encoder.classes_)
 
-# ---- Create a labeled DataFrame for CM ----
-cm_df = pd.DataFrame(cm_total, index=class_names, columns=class_names)
 
-# ---- Plot Confusion Matrix with labels ----
+cm_df = pd.DataFrame(cm_total, index=class_names, columns=class_names)
 plt.figure(figsize=(14, 12))
 sns.heatmap(cm_df, annot=True, fmt='d', cmap='Blues',
             cbar_kws={'label': 'Number of Predictions'})
@@ -252,9 +208,6 @@ plt.tight_layout()
 plt.savefig(os.path.join(BASE_DIR, "confusion_matrix_labeled.png"), dpi=300)
 plt.close()
 
-# ---------------------------
-# Summary
-# ---------------------------
 print("""
 ==============================
  INTERPRETATION GUIDE
@@ -271,3 +224,4 @@ print("""
 
 print("Trained model saved to:", MODEL_PATH)
 print("Available classes:", list(encoder.classes_))
+
