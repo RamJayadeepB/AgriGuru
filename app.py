@@ -6,18 +6,10 @@ import joblib
 import warnings
 import numpy as np
 
-# ---------------------------
-# Streamlit page config (MUST be the first Streamlit command)
-# ---------------------------
-st.set_page_config(page_title="Crop Recommendation", layout="wide")
-
-# Suppress warnings
+Crop Recommendation", layout="wide")
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-# ---------------------------
-# Paths / constants
-# ---------------------------
 BASE_DIR = os.path.dirname(__file__) or "."
 MODEL_PATH = os.path.join(BASE_DIR, "model.joblib")
 ENCODER_PATH = os.path.join(BASE_DIR, "encoder.joblib")
@@ -29,43 +21,24 @@ IMAGE_DIR = os.path.join(BASE_DIR, "crop_images")
 # ---------------------------
 
 def show_image(path_or_obj, caption=None):
-    """
-    Show image with use_container_width when supported (older Streamlit may not accept that kwarg).
-    """
     try:
         st.image(path_or_obj, caption=caption, use_container_width=True)
     except TypeError:
         st.image(path_or_obj, caption=caption)
 
 def get_openweather_key():
-    """
-    Resolve OpenWeather API key in a safe order:
-    1) OS environment variable OPENWEATHER_API_KEY
-    2) Streamlit secrets (if available) - try/except to avoid FileNotFoundError
-    3) None (caller should prompt user)
-    """
-    # 1) environment variable (recommended for Render)
     key = os.environ.get("OPENWEATHER_API_KEY")
     if key:
         return key
-
-    # 2) streamlit secrets (safe access)
     try:
         if hasattr(st, "secrets") and st.secrets is not None:
-            # st.secrets is dict-like; use get to avoid KeyError
             return st.secrets.get("OPENWEATHER_API_KEY")
     except FileNotFoundError:
-        # No secrets file exists in the runtime; ignore
         pass
     except Exception:
-        # Other issues reading secrets — ignore and fallback to prompting the user
         pass
 
     return None
-
-# ---------------------------
-# Load Trained Model & Encoder
-# ---------------------------
 try:
     model = joblib.load(MODEL_PATH)
     encoder = joblib.load(ENCODER_PATH)
@@ -78,17 +51,12 @@ except Exception as e:
     )
     st.exception(e)
     st.stop()
-
-# Ensure model_columns is a list in correct order
 if isinstance(model_columns, (np.ndarray, list, tuple)):
     model_columns = list(model_columns)
 else:
     st.error("model_columns has unexpected type. Expecting list/ndarray.")
     st.stop()
 
-# ---------------------------
-# OpenWeather API Function
-# ---------------------------
 def get_weather(city: str, api_key: str):
     """
     Fetches current temperature (C) and humidity (%) from OpenWeather API.
@@ -116,16 +84,11 @@ def get_weather(city: str, api_key: str):
         st.error(f"An error occurred while calling weather API: {e}")
         return None, None
 
-# ---------------------------
-# UI: Title + caption
-# ---------------------------
 st.title("🌾 Crop Recommendation System")
 st.caption(
     "Dataset ranges (approx): N: 0–140, P: 5–145, K: 5–205, Temp: 9–44 °C, "
     "Humidity: 14–100 %, pH: 3.5–9.9, Rainfall: 20–299 mm"
 )
-
-# Layout columns
 col1, col2 = st.columns([1, 1])
 
 with col1:
@@ -227,3 +190,4 @@ with col2:
                         st.dataframe(features_df)
             elif mode == "Automatic (City) Mode":
                 st.error("Prediction failed because weather data could not be fetched.")
+
