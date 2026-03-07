@@ -8,8 +8,8 @@ Files:
 - `Dockerfile`, `start.sh`, `requirements.txt` — for containerized deployment.
 
 Deploy instructions: push to GitHub and connect this repo to Render (Web Service, Docker). Streamlit runs on port 8501.
-
 **Built by RamJayadeep,Krishna Reddy,Ashwak :)**
+
 
 
 
