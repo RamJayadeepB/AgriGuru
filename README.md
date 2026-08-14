@@ -1,6 +1,6 @@
 # Crop Recommendation Streamlit App
 
-This repo contains a Streamlit app that recommends crops based on input features.
+This repo contains a Streamlit app that recommends crops based on input features..
 Files:
 - `app.py` — Streamlit application.
 - `model.joblib`, `encoder.joblib`, `model_columns.joblib` — trained artifacts (Option A).
